@@ -132,6 +132,23 @@ test('shows the backend error message when the API returns an error', async () =
   expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
 })
 
+test('shows The report failed when the error body has no message', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    status: 400,
+    json: async () => ({}),
+  })
+  vi.stubGlobal('fetch', fetchMock)
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
+
+  const message = await screen.findByText('The report failed.')
+  expect(message).toBeTruthy()
+  expect(message.classList.contains('error')).toBe(true)
+  expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
+})
+
 test('shows the copied failed result facts', async () => {
   vi.stubGlobal(
     'fetch',
@@ -236,5 +253,51 @@ test('shows incomplete response when repeated is missing', async () => {
       'This spike was already reported. The operator does not need to report it again.',
     ),
   ).toBeNull()
+  expect(screen.queryByRole('table')).toBeNull()
+})
+
+test('shows incomplete response when success body is empty', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      status: 200,
+      json: async () => ({}),
+    }),
+  )
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
+
+  const message = await screen.findByText(
+    'The report response is incomplete (missing id, missing message). Please contact the support team.',
+  )
+  expect(message).toBeTruthy()
+  expect(message.classList.contains('error')).toBe(true)
+  expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
+  expect(screen.queryByRole('table')).toBeNull()
+})
+
+test('shows incomplete response when success JSON cannot be parsed', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      status: 201,
+      json: async () => {
+        throw new Error('invalid json')
+      },
+    }),
+  )
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
+
+  const message = await screen.findByText(
+    'The report response is incomplete (missing id, missing message). Please contact the support team.',
+  )
+  expect(message).toBeTruthy()
+  expect(message.classList.contains('error')).toBe(true)
+  expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
   expect(screen.queryByRole('table')).toBeNull()
 })

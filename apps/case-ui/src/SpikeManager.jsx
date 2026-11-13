@@ -10,6 +10,14 @@ function failedTestItemText(testData) {
   return Object.keys(testData).join(', ')
 }
 
+function isNonEmptyMessage(message) {
+  return typeof message === 'string' && message.trim() !== ''
+}
+
+function incompleteResponseMessage(missingParts) {
+  return `The report response is incomplete (${missingParts.join(', ')}). Please contact the support team.`
+}
+
 export function SpikeManager() {
   const [productName, setProductName] = useState('')
   const [stored, setStored] = useState(false)
@@ -48,7 +56,15 @@ export function SpikeManager() {
         return
       }
       if (data.id == null) {
-        setInfo(data.message ?? '')
+        if (isNonEmptyMessage(data.message)) {
+          setInfo(data.message)
+          return
+        }
+        const missingParts = ['missing id']
+        if (!isNonEmptyMessage(data.message)) {
+          missingParts.push('missing message')
+        }
+        setError(incompleteResponseMessage(missingParts))
         return
       }
       if (data.repeated === true) {
