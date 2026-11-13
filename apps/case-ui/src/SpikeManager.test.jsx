@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import { SpikeManager } from './SpikeManager'
 
@@ -12,6 +12,36 @@ test('starts with no product name and a gray Report spike button', () => {
 
   expect(screen.getByRole('combobox').value).toBe('')
   expect(screen.getByRole('button', { name: 'Report spike' }).disabled).toBe(true)
+})
+
+test('disables Report spike while the request is in flight', async () => {
+  let resolveFetch
+  const fetchMock = vi.fn().mockReturnValue(
+    new Promise((resolve) => {
+      resolveFetch = resolve
+    }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  const button = screen.getByRole('button', { name: 'Report spike' })
+  expect(button.disabled).toBe(false)
+
+  fireEvent.click(button)
+  await waitFor(() => {
+    expect(button.disabled).toBe(true)
+  })
+
+  resolveFetch({
+    status: 201,
+    json: async () => ({ id: 1, repeated: false, failed_manufacturing_results: [] }),
+  })
+
+  expect(await screen.findByText('The spike is reported and stored.')).toBeTruthy()
+  await waitFor(() => {
+    expect(button.disabled).toBe(false)
+  })
 })
 
 test('shows that the spike is reported and stored', async () => {

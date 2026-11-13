@@ -18,14 +18,19 @@ export function SpikeManager() {
   const [rows, setRows] = useState([])
   const [info, setInfo] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   async function reportSpike() {
+    if (submitting) {
+      return
+    }
     setError('')
     setInfo('')
     setStored(false)
     setAlreadyReported(false)
     setStoredProductName('')
     setRows([])
+    setSubmitting(true)
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/apis/spikes`, {
         method: 'POST',
@@ -61,6 +66,8 @@ export function SpikeManager() {
       setError('The report response is incomplete. Please contact the support team.')
     } catch {
       setError('The report failed.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -86,7 +93,7 @@ export function SpikeManager() {
             type="button"
             className="submit"
             onClick={reportSpike}
-            disabled={productName === ''}
+            disabled={productName === '' || submitting}
           >
             Report spike
           </button>
