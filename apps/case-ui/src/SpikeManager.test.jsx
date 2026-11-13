@@ -16,8 +16,8 @@ test('starts with no product name and a gray Report spike button', () => {
 
 test('shows that the spike is reported and stored', async () => {
   const fetchMock = vi.fn().mockResolvedValue({
-    status: 200,
-    json: async () => ({ id: 1, failed_manufacturing_results: [] }),
+    status: 201,
+    json: async () => ({ id: 1, repeated: false, failed_manufacturing_results: [] }),
   })
   vi.stubGlobal('fetch', fetchMock)
 
@@ -26,9 +26,38 @@ test('shows that the spike is reported and stored', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
 
   expect(await screen.findByText('The spike is reported and stored.')).toBeTruthy()
+  expect(
+    screen.queryByText(
+      'This spike was already reported. The operator does not need to report it again.',
+    ),
+  ).toBeNull()
   expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
     product_name: 'Ford APCU-01',
   })
+})
+
+test('shows that this spike was already reported when repeated is true', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    status: 200,
+    json: async () => ({
+      id: 1,
+      product_name: 'Ford APCU-01',
+      repeated: true,
+      failed_manufacturing_results: [],
+    }),
+  })
+  vi.stubGlobal('fetch', fetchMock)
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
+
+  expect(
+    await screen.findByText(
+      'This spike was already reported. The operator does not need to report it again.',
+    ),
+  ).toBeTruthy()
+  expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
 })
 
 test('shows the message when the search finds no failed part', async () => {
@@ -45,33 +74,53 @@ test('shows the message when the search finds no failed part', async () => {
   fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
   fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
 
-  expect(await screen.findByText('no failed part found under Ford APCU-01')).toBeTruthy()
+  const message = await screen.findByText('no failed part found under Ford APCU-01')
+  expect(message).toBeTruthy()
+  expect(message.classList.contains('error')).toBe(false)
   expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
   expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
     product_name: 'Ford APCU-01',
   })
 })
 
+test('shows the backend error message when the API returns an error', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    status: 400,
+    json: async () => ({
+      message: 'product name is required',
+    }),
+  })
+  vi.stubGlobal('fetch', fetchMock)
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
+
+  const message = await screen.findByText('product name is required')
+  expect(message).toBeTruthy()
+  expect(message.classList.contains('error')).toBe(true)
+  expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
+})
+
 test('shows the copied failed result facts', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({
-      status: 200,
+      status: 201,
       json: async () => ({
         id: 1,
         product_name: 'Ford APCU-01',
+        repeated: false,
         failed_manufacturing_results: [
           {
             id: 9,
             serial_number: 'EXAMPLE-SERIAL',
             test_data_json: { example: '0010' },
             op_code: 'COLD_EOL',
-            station_setup: {
-              station_id: 'AEL-01-COLD-EOL',
-              rack_id: 'example-rack',
-              fixture_id: 'example-fixture',
-              nest_number: 1,
-            },
+            station_id: 'AEL-01-COLD-EOL',
+            rack_id: 'example-rack',
+            fixture_id: 'example-fixture',
+            nest_number: 1,
             operator_id: 'example-operator',
             shift_code: 'example-shift',
             created_at: '2026-11-06T12:00:00Z',
@@ -91,10 +140,17 @@ test('shows the copied failed result facts', async () => {
   expect(tableText).toContain('EXAMPLE-SERIAL')
   expect(tableText).toContain('example')
   expect(tableText).toContain('COLD_EOL')
-  expect(tableText).toContain('AEL-01-COLD-EOL / example-rack / example-fixture / 1')
+  expect(tableText).toContain('AEL-01-COLD-EOL')
+  expect(tableText).toContain('example-rack')
+  expect(tableText).toContain('example-fixture')
+  expect(tableText).toContain('1')
   expect(tableText).toContain('example-operator')
   expect(tableText).toContain('example-shift')
   expect(tableText).toContain('2026-11-06T12:00:00Z')
+  expect(screen.getByRole('columnheader', { name: 'Station id' })).toBeTruthy()
+  expect(screen.getByRole('columnheader', { name: 'Rack id' })).toBeTruthy()
+  expect(screen.getByRole('columnheader', { name: 'Fixture id' })).toBeTruthy()
+  expect(screen.getByRole('columnheader', { name: 'Nest number' })).toBeTruthy()
 })
 
 test('shows a general message when the call fails', async () => {
@@ -106,4 +162,49 @@ test('shows a general message when the call fails', async () => {
 
   expect(await screen.findByText('The report failed.')).toBeTruthy()
   expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
+})
+
+test('shows incomplete response when repeated is missing', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      status: 201,
+      json: async () => ({
+        id: 1,
+        product_name: 'Ford APCU-01',
+        failed_manufacturing_results: [
+          {
+            id: 9,
+            serial_number: 'EXAMPLE-SERIAL',
+            test_data_json: { example: '0010' },
+            op_code: 'COLD_EOL',
+            station_id: 'AEL-01-COLD-EOL',
+            rack_id: 'example-rack',
+            fixture_id: 'example-fixture',
+            nest_number: 1,
+            operator_id: 'example-operator',
+            shift_code: 'example-shift',
+            created_at: '2026-11-06T12:00:00Z',
+          },
+        ],
+      }),
+    }),
+  )
+
+  render(<SpikeManager />)
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Ford APCU-01' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Report spike' }))
+
+  const message = await screen.findByText(
+    'The report response is incomplete. Please contact the support team.',
+  )
+  expect(message).toBeTruthy()
+  expect(message.classList.contains('error')).toBe(true)
+  expect(screen.queryByText('The spike is reported and stored.')).toBeNull()
+  expect(
+    screen.queryByText(
+      'This spike was already reported. The operator does not need to report it again.',
+    ),
+  ).toBeNull()
+  expect(screen.queryByRole('table')).toBeNull()
 })
