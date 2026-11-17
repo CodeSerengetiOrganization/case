@@ -79,10 +79,7 @@ class SpikeServiceIT {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(MockSpikeDataRetriever.PRODUCT_HAS_FAILED);
 
-		Object result = spikeService.reportSpike(request);
-
-		assertThat(result).isInstanceOf(SpikeResponse.class);
-		SpikeResponse body = (SpikeResponse) result;
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 		assertThat(body.repeated()).isFalse();
 		assertThat(body.failedManufacturingResults()).hasSize(1);
 		assertThat(body.failedManufacturingResults().getFirst().id()).isEqualTo(1L);
@@ -131,7 +128,7 @@ class SpikeServiceIT {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(MockSpikeDataRetriever.PRODUCT_MISSING_NEST);
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.repeated()).isFalse();
 		assertThat(spikeRepository.count()).isEqualTo(1);
@@ -147,7 +144,7 @@ class SpikeServiceIT {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(MockSpikeDataRetriever.PRODUCT_ABNORMAL_TEST_ITEMS);
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.repeated()).isFalse();
 		assertThat(body.failedTestItemsAbnormal()).isTrue();
@@ -169,14 +166,16 @@ class SpikeServiceIT {
 		CountDownLatch start = new CountDownLatch(1);
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		try {
-			Future<Object> first = pool.submit(() -> reportAfterBarrier(productName, ready, start));
-			Future<Object> second = pool.submit(() -> reportAfterBarrier(productName, ready, start));
+			Future<ReportSpikeResult> first =
+					pool.submit(() -> reportAfterBarrier(productName, ready, start));
+			Future<ReportSpikeResult> second =
+					pool.submit(() -> reportAfterBarrier(productName, ready, start));
 
 			assertTrue(ready.await(15, TimeUnit.SECONDS), "workers did not reach the barrier");
 			start.countDown();
 
-			SpikeResponse a = (SpikeResponse) first.get(60, TimeUnit.SECONDS);
-			SpikeResponse b = (SpikeResponse) second.get(60, TimeUnit.SECONDS);
+			SpikeResponse a = storedBody(first.get(60, TimeUnit.SECONDS));
+			SpikeResponse b = storedBody(second.get(60, TimeUnit.SECONDS));
 
 			long newStores = List.of(a, b).stream().filter(r -> !r.repeated()).count();
 			long repeats = List.of(a, b).stream().filter(SpikeResponse::repeated).count();
@@ -192,12 +191,17 @@ class SpikeServiceIT {
 		}
 	}
 
-	private Object reportAfterBarrier(
+	private ReportSpikeResult reportAfterBarrier(
 			String productName, CountDownLatch ready, CountDownLatch start) throws Exception {
 		ready.countDown();
 		assertTrue(start.await(30, TimeUnit.SECONDS), "start signal timed out");
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 		return spikeService.reportSpike(request);
+	}
+
+	private static SpikeResponse storedBody(ReportSpikeResult result) {
+		assertThat(result).isInstanceOf(ReportSpikeResult.Stored.class);
+		return ((ReportSpikeResult.Stored) result).body();
 	}
 }

@@ -1,7 +1,7 @@
 package com.case_api.service;
 
 import com.case_api.controller.SpikeResponse;
-import com.case_api.controller.SpikeResponse.FailedResultResponse;
+import com.case_api.controller.SpikeResponse.ManufacturingResult;
 import com.case_api.repository.SpikeEntity;
 import com.case_api.repository.SpikeFailedResultEntity;
 import com.case_api.repository.SpikeFailedResultRepository;
@@ -129,11 +129,11 @@ public class SpikeStoreWriter {
 		spike.setCreatedAt(Instant.now());
 		SpikeEntity saved = spikeRepository.save(spike);
 
-		List<FailedResultResponse> responseResults = new ArrayList<>(failedManufacturingResults.size());
+		List<ManufacturingResult> responseResults = new ArrayList<>(failedManufacturingResults.size());
 		for (FailedManufacturingResult result : failedManufacturingResults) {
 			SpikeFailedResultEntity row = toSpikeFailedResultEntity(saved.getId(), result);
 			spikeFailedResultRepository.save(row);
-			responseResults.add(toFailedResultResponse(row));
+			responseResults.add(toManufacturingResult(row));
 		}
 
 		return new SpikeResponse(
@@ -211,9 +211,9 @@ public class SpikeStoreWriter {
 	/** Maps a stored spike plus its failed-result rows to the API success body. */
 	private static SpikeResponse toSpikeResponse(
 			SpikeEntity spike, List<SpikeFailedResultEntity> rows, boolean repeated) {
-		List<FailedResultResponse> results = new ArrayList<>(rows.size());
+		List<ManufacturingResult> results = new ArrayList<>(rows.size());
 		for (SpikeFailedResultEntity row : rows) {
-			results.add(toFailedResultResponse(row));
+			results.add(toManufacturingResult(row));
 		}
 		return new SpikeResponse(
 				spike.getId(),
@@ -254,8 +254,8 @@ public class SpikeStoreWriter {
 	}
 
 	/** Maps one stored failed-result row to the response element. */
-	private static FailedResultResponse toFailedResultResponse(SpikeFailedResultEntity row) {
-		return new FailedResultResponse(
+	private static ManufacturingResult toManufacturingResult(SpikeFailedResultEntity row) {
+		return new ManufacturingResult(
 				row.getSpikeId(),
 				row.getId(),
 				row.getSerialNumber(),

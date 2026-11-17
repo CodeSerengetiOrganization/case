@@ -16,9 +16,13 @@ public record SpikeResponse(
 		@JsonProperty("failed_test_items_abnormal") boolean failedTestItemsAbnormal,
 		@JsonProperty("created_at") Instant createdAt,
 		@JsonProperty("repeated") boolean repeated,
-		@JsonProperty("failed_manufacturing_results") List<FailedResultResponse> failedManufacturingResults) {
+		@JsonProperty("failed_manufacturing_results") List<ManufacturingResult> failedManufacturingResults) {
 
-	public record FailedResultResponse(
+	/**
+	 * CASE copy of one MES manufacturing-result shape under this spike (includes {@code spike_id}).
+	 * The list name {@code failed_manufacturing_results} marks the failed EOL selection.
+	 */
+	public record ManufacturingResult(
 			@JsonProperty("spike_id") Long spikeId,
 			@JsonProperty("id") Long id,
 			@JsonProperty("serial_number") String serialNumber,

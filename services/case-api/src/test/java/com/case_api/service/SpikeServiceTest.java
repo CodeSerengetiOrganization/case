@@ -86,10 +86,10 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 
-		Object result = spikeService.reportSpike(request);
+		ReportSpikeResult result = spikeService.reportSpike(request);
 
-		assertThat(result).isInstanceOf(NoFailedPartResponse.class);
-		NoFailedPartResponse body = (NoFailedPartResponse) result;
+		assertThat(result).isInstanceOf(ReportSpikeResult.NoFailedPart.class);
+		NoFailedPartResponse body = ((ReportSpikeResult.NoFailedPart) result).body();
 		assertThat(body.productName()).isEqualTo(productName);
 		assertThat(body.message()).isEqualTo("no failed part found under " + productName);
 		verify(spikeRepository, never()).save(any());
@@ -114,10 +114,10 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 
-		Object result = spikeService.reportSpike(request);
+		ReportSpikeResult result = spikeService.reportSpike(request);
 
-		assertThat(result).isInstanceOf(SpikeResponse.class);
-		SpikeResponse body = (SpikeResponse) result;
+		assertThat(result).isInstanceOf(ReportSpikeResult.Stored.class);
+		SpikeResponse body = ((ReportSpikeResult.Stored) result).body();
 		assertThat(body.repeated()).isFalse();
 		assertThat(body.id()).isEqualTo(42L);
 		assertThat(body.failedTestItemsAbnormal()).isFalse();
@@ -153,7 +153,7 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName("trim-product");
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.failedManufacturingResults()).hasSize(100);
 		assertThat(body.failedManufacturingResults().getFirst().id()).isEqualTo(150L);
@@ -185,7 +185,7 @@ class SpikeServiceTest {
 			SpikeRequest request = new SpikeRequest();
 			request.setProductName(productName);
 
-			SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+			SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 			assertThat(body.repeated()).isFalse();
 			ArgumentCaptor<SpikeFailedResultEntity> rowCaptor =
@@ -236,7 +236,7 @@ class SpikeServiceTest {
 			SpikeRequest request = new SpikeRequest();
 			request.setProductName(productName);
 
-			SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+			SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 			assertThat(body.repeated()).isFalse();
 			assertThat(body.failedTestItemsAbnormal()).isTrue();
@@ -277,7 +277,7 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.repeated()).isTrue();
 		assertThat(body.id()).isEqualTo(42L);
@@ -309,7 +309,7 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.repeated()).isFalse();
 		assertThat(body.id()).isEqualTo(99L);
@@ -359,7 +359,7 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.repeated()).isTrue();
 		verify(spikeProductLockRepository).findByProductNameForUpdate(productName);
@@ -383,7 +383,7 @@ class SpikeServiceTest {
 		SpikeRequest request = new SpikeRequest();
 		request.setProductName(productName);
 
-		SpikeResponse body = (SpikeResponse) spikeService.reportSpike(request);
+		SpikeResponse body = storedBody(spikeService.reportSpike(request));
 
 		assertThat(body.repeated()).isTrue();
 		assertThat(body.id()).isEqualTo(42L);
@@ -391,6 +391,11 @@ class SpikeServiceTest {
 				.isEqualTo(Map.of("switch-open", "0010", "switch-close", "0001"));
 		verify(spikeRepository, never()).save(any());
 		verify(spikeFailedResultRepository, never()).save(any());
+	}
+
+	private static SpikeResponse storedBody(ReportSpikeResult result) {
+		assertThat(result).isInstanceOf(ReportSpikeResult.Stored.class);
+		return ((ReportSpikeResult.Stored) result).body();
 	}
 
 	private static FailedManufacturingResult sampleResult(long id, Object failedTestItems) {

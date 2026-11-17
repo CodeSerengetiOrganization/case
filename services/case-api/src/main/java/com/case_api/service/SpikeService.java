@@ -24,21 +24,21 @@ public class SpikeService {
 	}
 
 	/**
-	 * Returns {@link NoFailedPartResponse} when the search finds no failed part.
-	 * Returns an existing spike with {@code repeated=true} when the id set matches.
-	 * Otherwise stores a new spike with {@code repeated=false}.
+	 * Returns {@link ReportSpikeResult.NoFailedPart} when the search finds no failed part.
+	 * Returns {@link ReportSpikeResult.Stored} for a new or repeated spike.
 	 */
-	public Object reportSpike(SpikeRequest request) {
+	public ReportSpikeResult reportSpike(SpikeRequest request) {
 		String productName = request.getProductName();
 		SpikeSearchResult search = spikeDataRetriever.search(productName);
 		trimToMostRecent(search.failedManufacturingResults(), MAX_FAILED_RESULTS);
 
 		if (search.failedManufacturingResults().isEmpty()) {
-			return new NoFailedPartResponse(
-					productName, "no failed part found under " + productName);
+			return new ReportSpikeResult.NoFailedPart(new NoFailedPartResponse(
+					productName, "no failed part found under " + productName));
 		}
 
-		return spikeStoreWriter.storeOrReturnRepeat(productName, search);
+		return new ReportSpikeResult.Stored(
+				spikeStoreWriter.storeOrReturnRepeat(productName, search));
 	}
 
 	/**

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.case_api.service.MockSpikeDataRetriever;
+import com.case_api.service.ReportSpikeResult;
 import com.case_api.service.SpikeService;
 import java.time.Instant;
 import java.util.List;
@@ -47,8 +48,8 @@ class SpikeControllerTest {
 	void reportSpike_whenNoFailedPart_returns200() throws Exception {
 		String productName = MockSpikeDataRetriever.PRODUCT_ALL_PASS;
 		when(spikeService.reportSpike(any(SpikeRequest.class)))
-				.thenReturn(new NoFailedPartResponse(
-						productName, "no failed part found under " + productName));
+				.thenReturn(new ReportSpikeResult.NoFailedPart(new NoFailedPartResponse(
+						productName, "no failed part found under " + productName)));
 
 		mockMvc.perform(post("/apis/spikes")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -65,7 +66,7 @@ class SpikeControllerTest {
 	void reportSpike_whenNewSpike_returns201() throws Exception {
 		String productName = MockSpikeDataRetriever.PRODUCT_HAS_FAILED;
 		when(spikeService.reportSpike(any(SpikeRequest.class)))
-				.thenReturn(sampleSpikeResponse(1L, productName, false));
+				.thenReturn(new ReportSpikeResult.Stored(sampleSpikeResponse(1L, productName, false)));
 
 		mockMvc.perform(post("/apis/spikes")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -82,7 +83,7 @@ class SpikeControllerTest {
 	void reportSpike_whenRepeatedSpike_returns200() throws Exception {
 		String productName = MockSpikeDataRetriever.PRODUCT_HAS_FAILED;
 		when(spikeService.reportSpike(any(SpikeRequest.class)))
-				.thenReturn(sampleSpikeResponse(42L, productName, true));
+				.thenReturn(new ReportSpikeResult.Stored(sampleSpikeResponse(42L, productName, true)));
 
 		mockMvc.perform(post("/apis/spikes")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -105,7 +106,7 @@ class SpikeControllerTest {
 				false,
 				Instant.parse("2026-11-06T12:05:00Z"),
 				repeated,
-				List.of(new SpikeResponse.FailedResultResponse(
+				List.of(new SpikeResponse.ManufacturingResult(
 						id, 1L, "APCU-CD4-PCBA-1", "Ford-APCU", "WO-DEMO-001", "COLD_EOL",
 						"AEL-01-EOL-01", "RACK-APCU-G1-01", "FIXTURE-APCU-G2-01", 1,
 						"FAIL", 30, "sw-1.0", "hw-2.0",

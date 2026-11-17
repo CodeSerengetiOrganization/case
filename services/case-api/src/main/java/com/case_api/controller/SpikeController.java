@@ -1,5 +1,6 @@
 package com.case_api.controller;
 
+import com.case_api.service.ReportSpikeResult;
 import com.case_api.service.SpikeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -24,16 +25,11 @@ public class SpikeController {
 
 	@PostMapping
 	public ResponseEntity<?> reportSpike(@Valid @RequestBody SpikeRequest request) {
-		Object result = spikeService.reportSpike(request);
-		if (result instanceof NoFailedPartResponse body) {
-			return ResponseEntity.ok(body);
-		}
-		if (result instanceof SpikeResponse body) {
-			if (body.repeated()) {
-				return ResponseEntity.ok(body);
-			}
-			return ResponseEntity.status(HttpStatus.CREATED).body(body);
-		}
-		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		return switch (spikeService.reportSpike(request)) {
+			case ReportSpikeResult.NoFailedPart(var body) -> ResponseEntity.ok(body);
+			case ReportSpikeResult.Stored(var body) -> body.repeated()
+					? ResponseEntity.ok(body)
+					: ResponseEntity.status(HttpStatus.CREATED).body(body);
+		};
 	}
 }
