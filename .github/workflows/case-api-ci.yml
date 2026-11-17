@@ -1,0 +1,40 @@
+# case-api CI — unit tests (Surefire) + ITs (Failsafe / Testcontainers MySQL)
+name: case-api CI
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "services/case-api/**"
+      - ".github/workflows/case-api-ci.yml"
+  pull_request:
+    branches: [develop]
+    paths:
+      - "services/case-api/**"
+      - ".github/workflows/case-api-ci.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: services/case-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Docker is available on the runner. SpikeServiceIT starts MySQL via Testcontainers.
+      # No Compose MySQL service here. Hard-fail if Docker / Testcontainers cannot start.
+      - name: Maven verify (Surefire + Failsafe ITs)
+        run: ./mvnw clean verify
